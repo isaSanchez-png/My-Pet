@@ -7,12 +7,28 @@
 
 import SwiftUI
 
-struct PetDetailView: View {
+struct PetListView: View {
+    @StateObject private var manager = PetManager()
+    @State private var showAddPet: Bool = false
+
+
     var body: some View {
-        Text(/*@START_MENU_TOKEN@*/"Hello, World!"/*@END_MENU_TOKEN@*/)
+        NavigationStack{
+            ZStack{
+                if manager.pets.isEmpty{
+                    EmptyStateView(showAddPet: $showAddPet)
+                } else {
+                    //mostrar la lista de mascotas
+                }
+            }
+            .navigationTitle("My Pets")
+            .navigationBarTitleDisplayMode(.inline)
+            .sheet(isPresented: $showAddPet){
+                AddPetView(manager: manager)
+            }
+        }
     }
 }
-
 #Preview {
-    PetDetailView()
+    PetListView()
 }
