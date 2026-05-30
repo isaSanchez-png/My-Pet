@@ -20,7 +20,7 @@ struct Pet: Identifiable, Codable {
         case cat = "Cat"
         case dog = "Dog"
         
-        var defaulEmoji: String {
+        var defaultEmoji: String {
             switch self {
             case .fish: return "🐠"
             case .bird: return "🦜"

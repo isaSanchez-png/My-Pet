@@ -14,15 +14,41 @@ struct PetListView: View {
 
     var body: some View {
         NavigationStack{
+            
+            Text("My Pets")
+                .font(.largeTitle)
+                .bold()
+                .padding(.bottom)
+                
+                .toolbar{
+                    ToolbarItem(placement: .topBarTrailing){
+                        Button { showAddPet = true} label: {
+                            Image(systemName: "plus")
+                        }
+                    }
+                }
             ZStack{
                 if manager.pets.isEmpty{
                     EmptyStateView(showAddPet: $showAddPet)
                 } else {
-                    //mostrar la lista de mascotas
+                    List{
+                        ForEach(manager.pets){ pet in
+                            NavigationLink(destination: PetDetailView(pet: pet)){
+                                HStack{
+                                    Text(pet.type.defaultEmoji)
+                                    VStack(alignment: .leading){
+                                        Text(pet.name)
+                                        Text("Age: \(pet.age) years")
+                                            .font(.caption)
+                                    }
+                                }
+                            }
+                        }
+                        .onDelete(perform: manager.deletePets)
+                    }
+                    .listStyle(.insetGrouped)
                 }
             }
-            .navigationTitle("My Pets")
-            .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showAddPet){
                 AddPetView(manager: manager)
             }

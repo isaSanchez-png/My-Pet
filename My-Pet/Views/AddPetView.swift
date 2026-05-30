@@ -8,7 +8,6 @@
 import SwiftUI
 import PhotosUI
 
-
 struct AddPetView: View {
     @ObservedObject var manager: PetManager
     @Environment(\.dismiss) var dismiss
@@ -22,7 +21,6 @@ struct AddPetView: View {
     @State private var imageData: Data?
     @State private var processedImage: Image?
     @State private var selectedItem: PhotosPickerItem?
-    
     
 
     var body: some View {
