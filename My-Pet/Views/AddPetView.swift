@@ -13,87 +13,147 @@ struct AddPetView: View {
     @Environment(\.dismiss) var dismiss
     
     @State private var name: String = ""
-    @State private var kind: Pet.type = .cat
-    @State private var age = 0
-    let step = 1
-    let range = 0...15
+    @State private var kind: Pet.PetType = .cat
     @State private var favoriteFood = ""
+    
     @State private var imageData: Data?
     @State private var processedImage: Image?
     @State private var selectedItem: PhotosPickerItem?
     
-
+    @State private var birthDate = Date()
+    
+    // Weight
+    @State private var weightValue: Double = 0.0
+    @State private var weightDate: Date = Date()
+    @State private var weightHistory: [Pet.WeightRecord] = []
+    
+    // Vaccines
+    @State private var vaccineName: String = ""
+    @State private var lastVaccineDate: Date = Date()
+    @State private var vaccinesList: [Pet.Vaccine] = []
+    
+    // Deworming & Food
+    @State private var lastDewormingDate: Date = Date()
+    @State private var dewormingList: [Pet.Deworming] = []
+    @State private var lastFoodPurchase: Date = Date()
+    
     var body: some View {
-        NavigationStack{
-            Form{
-                HStack{
-                    Text("Name: ")
-                    TextField("Mandarina", text: $name)
-                }
-                .padding(5)
-                VStack{
-                        Text("Select the kind of your pet")
-                            .padding([.bottom], 10)
-                        Picker(selection: $kind){
-                            Text("Fish").tag(Pet.type.fish)
-                            Text("Bird").tag(Pet.type.bird)
-                            Text("Cat").tag(Pet.type.cat)
-                            Text("Dog").tag(Pet.type.dog)
-                        } label: {
-                            Text("Kind")
-                        }
-                        .pickerStyle(.segmented)
+        NavigationStack {
+            Form {
+                Section(header: Text("General Info")) {
+                    HStack {
+                        Text("Name:")
+                        TextField("Mandarina", text: $name)
                     }
-                
-                Stepper(
-                    value: $age,
-                    in: range,
-                    step: step
-                ) {
-                    Text("Age:  \(age)")
-                        .padding(5)
-                }
-                
-                HStack{
-                    Text("Favorite food: ")
-                    TextField("Tuna churu", text: $favoriteFood)
-                }
-                .padding(5)
-                
-                HStack{
-                    Text("Photo")
-                    PhotosPicker(selection: $selectedItem){
-                        if let processedImage {
-                            processedImage
-                                .resizable()
-                                .scaledToFit()
-                        } else {
-                            ContentUnavailableView("No picture", systemImage: "photo.badge.plus", description: Text("Tap to import a photo"))
+                    
+                    Picker("Kind", selection: $kind) {
+                        Text("Cat 🐱").tag(Pet.PetType.cat)
+                        Text("Dog 🐶").tag(Pet.PetType.dog)
+                    }
+                    .pickerStyle(.segmented)
+                    
+                    HStack {
+                        Text("Favorite food:")
+                        TextField("Tuna churu", text: $favoriteFood)
+                    }
+                    
+                    DatePicker("Birth Date", selection: $birthDate, displayedComponents: [.date])
+                    
+                    PhotosPicker(selection: $selectedItem, matching: .images) {
+                        HStack {
+                            Text("Photo")
+                            Spacer()
+                            if let processedImage {
+                                processedImage
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 40, height: 40)
+                                    .clipShape(Circle())
+                            } else {
+                                Image(systemName: "photo.badge.plus")
+                                    .font(.title2)
+                            }
                         }
                     }
-                    .buttonStyle(.plain)
+                    .onChange(of: selectedItem) { newItem in
+                        Task {
+                            if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                                self.imageData = data
+                                if let uiImage = UIImage(data: data) {
+                                    self.processedImage = Image(uiImage: uiImage)
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                Section(header: Text("Weight Tracking")) {
+                    HStack {
+                        TextField("Weight (Kg)", value: $weightValue, format: .number)
+                            .keyboardType(.decimalPad)
+                        Text("Kg")
+                    }
+                    DatePicker("Checkup Date", selection: $weightDate, displayedComponents: [.date])
+                    
+                    Button("Add Weight Record") {
+                        if weightValue > 0 {
+                            let newRecord = Pet.WeightRecord(dateWeight: weightDate, weight: weightValue)
+                            weightHistory.append(newRecord)
+                            weightValue = 0.0
+                        }
+                    }
+                }
+                
+                Section(header: Text("Vaccines")) {
+                    TextField("Vaccine Name", text: $vaccineName)
+                    DatePicker("Vaccine Date", selection: $lastVaccineDate, displayedComponents: [.date])
+                    
+                    Button("Add Vaccine") {
+                        if !vaccineName.isEmpty {
+                            let nextDate = calculateNextVaccine(from: lastVaccineDate)
+                            let newVaccine = Pet.Vaccine(name: vaccineName, lastDate: lastVaccineDate, nextDate: nextDate)
+                            vaccinesList.append(newVaccine)
+                            vaccineName = ""
+                        }
+                    }
+                }
+                
+                Section(header: Text("Deworming & Care")) {
+                    DatePicker("Last Deworming", selection: $lastDewormingDate, displayedComponents: [.date])
+                    DatePicker("Last Food Purchase", selection: $lastFoodPurchase, displayedComponents: [.date])
                 }
             }
             .navigationTitle("Add a New Pet")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar{
-                ToolbarItem(placement: .cancellationAction){
-                    Button("Cancel"){dismiss() }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction){Button("Save"){
-                    let newPet = Pet(
-                        name: name,
-                        type: kind,
-                        age: age,
-                        imageData: imageData,
-                        favoriteFood: favoriteFood
-                    )
-                    manager.addPets(newPet)
-                    dismiss()
-                }
-                .disabled(name.isEmpty)
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        let dewormingRecord = Pet.Deworming(lastDate: lastDewormingDate, nextDate: nil)
+                        
+                        let newPet = Pet(
+                            name: name,
+                            type: kind,
+                            favoriteFood: favoriteFood,
+                            imageData: imageData,
+                            birthDate: birthDate,
+                            weightHistory: weightHistory,
+                            vaccines: vaccinesList,
+                            lastDeworming: [dewormingRecord],
+                            lastFoodPurchase: lastFoodPurchase
+                        )
+                        manager.addPets(newPet)
+                        dismiss()
+                    }
+                    .disabled(name.isEmpty)
                 }
             }
         }
+    }
+    
+    private func calculateNextVaccine(from date: Date) -> Date {
+        return Calendar.current.date(byAdding: .day, value: 365, to: date) ?? date
     }
 }
